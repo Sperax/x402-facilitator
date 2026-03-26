@@ -34,7 +34,7 @@ export const ERC20_TRANSFER_WITH_AUTHORIZATION_ABI = [
 
 /**
  * EIP-2612 permit ABI
- * Used by USDs, SPA, and other ERC20Permit tokens
+ * Used by USDs and other ERC20Permit tokens
  * Flow: permit() grants allowance via signature, then transferFrom() moves tokens
  */
 export const ERC20_PERMIT_ABI = [

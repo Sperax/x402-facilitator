@@ -92,13 +92,22 @@ export class PaymentVerifier {
       return { valid: false, reason: 'Insufficient payment amount' };
     }
 
-    // Timing constraints
+    // Timing constraints (scheme-aware)
     const now = BigInt(Math.floor(Date.now() / 1000));
-    if (authorization.validAfter > now) {
-      return { valid: false, reason: 'Authorization not yet valid' };
-    }
-    if (authorization.validBefore <= now) {
-      return { valid: false, reason: 'Authorization expired' };
+    const tokenConfig = getTokenConfig(chainId, token);
+    const scheme = payment.scheme ?? tokenConfig?.scheme ?? 'eip3009';
+
+    if (scheme === 'eip2612' && payment.permit) {
+      if (payment.permit.deadline <= now) {
+        return { valid: false, reason: 'Permit deadline expired' };
+      }
+    } else {
+      if (authorization.validAfter > now) {
+        return { valid: false, reason: 'Authorization not yet valid' };
+      }
+      if (authorization.validBefore <= now) {
+        return { valid: false, reason: 'Authorization expired' };
+      }
     }
 
     // Requirements expiry
@@ -122,12 +131,9 @@ export class PaymentVerifier {
     }
 
     // Check token has EIP-712 domain
-    const tokenConfig = getTokenConfig(chainId, token);
     if (!tokenConfig) {
       return { valid: false, reason: `No EIP-712 domain for token ${token} on chain ${chainId}` };
     }
-
-    const scheme = payment.scheme ?? tokenConfig?.scheme ?? 'eip3009';
 
     try {
       const domain = getTokenDomain(token, chainId);
@@ -200,19 +206,28 @@ export async function verifyPayment(payment: X402Payment): Promise<VerifyResult>
     return { valid: false, reason: `Unsupported token ${token} on chain ${chainId}` };
   }
 
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  if (authorization.validAfter > now) {
-    return { valid: false, reason: 'Authorization not yet valid' };
-  }
-  if (authorization.validBefore <= now) {
-    return { valid: false, reason: 'Authorization has expired' };
-  }
-  if (authorization.value <= 0n) {
-    return { valid: false, reason: 'Value must be positive' };
-  }
-
   // Determine scheme from payment or token config
   const scheme: SettlementScheme = payment.scheme ?? tokenConfig.scheme ?? 'eip3009';
+
+  // Timing constraints (scheme-aware)
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (scheme === 'eip2612' && payment.permit) {
+    if (payment.permit.deadline <= now) {
+      return { valid: false, reason: 'Permit deadline has expired' };
+    }
+  } else {
+    if (authorization.validAfter > now) {
+      return { valid: false, reason: 'Authorization not yet valid' };
+    }
+    if (authorization.validBefore <= now) {
+      return { valid: false, reason: 'Authorization has expired' };
+    }
+  }
+
+  const value = payment.permit?.value ?? authorization.value;
+  if (value <= 0n) {
+    return { valid: false, reason: 'Value must be positive' };
+  }
 
   try {
     const domain = getTokenDomain(token, chainId);
