@@ -8,7 +8,7 @@ import type { X402Payment, PaymentRequirements, SupportedChainId } from '../type
 import { paymentPayloadSchema, paymentRequiredSchema, decodePaymentPayload } from '../middleware/validate.js';
 
 const verifyBodySchema = z.object({
-  payment: z.unknown().transform(decodePaymentPayload).pipe(paymentPayloadSchema),
+  paymentPayload: z.unknown().transform(decodePaymentPayload).pipe(paymentPayloadSchema),
   paymentRequirements: z.unknown().transform(decodePaymentPayload).pipe(paymentRequiredSchema),
 });
 
@@ -46,7 +46,7 @@ export function createVerifyRoute(facilitator: Facilitator): Hono {
   const route = new Hono();
 
   route.post('/', zValidator('json', verifyBodySchema), async (c) => {
-    const { payment: rawPayment, paymentRequirements: rawReqs } = c.req.valid('json');
+    const { paymentPayload: rawPayment, paymentRequirements: rawReqs } = c.req.valid('json');
 
     const payment = toX402Payment(rawPayment);
     const requirements = toPaymentRequirements(rawReqs);
