@@ -231,6 +231,111 @@ curl https://x402.sperax.io/info
 }
 ```
 
+### `GET /balances`
+
+Facilitator wallet ETH + USDC balances on each enabled chain. Includes a `lowGas` warning when ETH drops below 0.001.
+
+```bash
+curl https://x402.sperax.io/balances
+```
+
+```json
+{
+  "facilitatorAddress": "0x40252CFDF8B20Ed757D61ff157719F33Ec332402",
+  "status": "ok",
+  "chains": [
+    {
+      "chainId": 8453,
+      "network": "base",
+      "eth": { "balance": "0.005", "wei": "5000000000000000" },
+      "usdc": { "balance": "0.0", "raw": "0" },
+      "lowGas": false
+    }
+  ]
+}
+```
+
+### `GET /metrics`
+
+Verification and settlement counters, latency percentiles, uptime. Useful for monitoring dashboards.
+
+```bash
+curl https://x402.sperax.io/metrics
+```
+
+```json
+{
+  "timestamp": "2026-03-26T12:00:00.000Z",
+  "uptime": 86400,
+  "verify": {
+    "requests": { "{\"valid\":\"true\"}": 42 },
+    "errors": 0,
+    "latency": { "avg": 12.5, "p99": 45, "count": 42 }
+  },
+  "settle": {
+    "success": { "{\"chainId\":\"8453\"}": 10 },
+    "failed": {},
+    "rejected": 0,
+    "latency": { "avg": 2100, "p99": 4500, "count": 10 }
+  }
+}
+```
+
+### `GET /fees`
+
+Current gas prices and estimated settlement cost per chain.
+
+```bash
+curl https://x402.sperax.io/fees
+```
+
+```json
+{
+  "chains": [
+    {
+      "chainId": 8453,
+      "network": "base",
+      "gasPrice": "0.005 gwei",
+      "estimatedSettlementCost": {
+        "eth": "0.0000004",
+        "wei": "400000000000",
+        "gasUnits": "80000"
+      }
+    }
+  ]
+}
+```
+
+### `GET /status/:txHash`
+
+Look up a settlement transaction by hash. Searches all enabled chains.
+
+```bash
+curl https://x402.sperax.io/status/0xabc123...
+```
+
+```json
+{
+  "chainId": 8453,
+  "network": "base",
+  "found": true,
+  "status": "confirmed",
+  "blockNumber": 43885069,
+  "from": "0x40252CFDF8B20Ed757D61ff157719F33Ec332402",
+  "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "gasUsed": "65000",
+  "explorerUrl": "https://basescan.org/tx/0xabc123..."
+}
+```
+
+### `GET /.well-known/x402`
+
+Standard x402 protocol discovery endpoint. Allows clients and crawlers to auto-discover this facilitator's capabilities, supported chains, and available endpoints.
+
+```bash
+curl https://x402.sperax.io/.well-known/x402
+```
+
 ## Deployment
 
 ### Railway (recommended)
