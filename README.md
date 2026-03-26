@@ -19,16 +19,23 @@ Built with [Hono](https://hono.dev), [viem](https://viem.sh), and [Zod](https://
 
 ## How It Works
 
-The x402 protocol enables HTTP 402-based micropayments. This facilitator acts as the trusted intermediary that verifies payment signatures and settles them on-chain:
+The x402 protocol enables HTTP 402-based micropayments. This facilitator acts as the trusted intermediary that verifies payment signatures and settles them on-chain.
 
-![x402 Protocol Flow](docs/x402-flow.svg)
+<p align="center">
+  <img src="docs/x402-flow.svg" alt="x402 Payment Flow" width="800"/>
+</p>
 
-
-1. Client requests a paid resource, gets a **402** response with payment requirements
-2. Client signs an **EIP-712** `TransferWithAuthorization` ([EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)) message
-3. Resource server forwards the signed payment to this facilitator
-4. Facilitator **verifies** the signature, checks on-chain state, and calls `transferWithAuthorization` to move USDC
-5. Resource server grants access to the content
+| Step | Action | Description |
+|:---:|---|---|
+| **1** | `GET /resource` | Client requests a paid resource |
+| **2** | `402 Payment Required` | Server responds with payment requirements |
+| **3** | EIP-712 signing | Client signs a `TransferWithAuthorization` ([EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)) message |
+| **4** | `GET /resource + X-PAYMENT` | Client retries with signed payment header |
+| **5** | `POST /settle` | Resource server sends payment to facilitator |
+| **6** | `transferWithAuthorization()` | Facilitator verifies signature and settles on-chain |
+| **7** | `tx receipt` | Blockchain confirms the USDC transfer |
+| **8** | `{ success, txHash }` | Facilitator returns settlement proof |
+| **9** | `200 OK + resource` | Resource server grants access |
 
 ## Supported Chains
 
