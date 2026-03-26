@@ -14,6 +14,10 @@ Built with [Hono](https://hono.dev), [viem](https://viem.sh), and [Zod](https://
 | Health | [x402.sperax.io/health](https://x402.sperax.io/health) |
 | Supported | [x402.sperax.io/supported](https://x402.sperax.io/supported) |
 | Info | [x402.sperax.io/info](https://x402.sperax.io/info) |
+| Balances | [x402.sperax.io/balances](https://x402.sperax.io/balances) |
+| Metrics | [x402.sperax.io/metrics](https://x402.sperax.io/metrics) |
+| Fees | [x402.sperax.io/fees](https://x402.sperax.io/fees) |
+| Discovery | [x402.sperax.io/.well-known/x402](https://x402.sperax.io/.well-known/x402) |
 
 **Facilitator Address**: [`0x40252CFDF8B20Ed757D61ff157719F33Ec332402`](https://basescan.org/address/0x40252CFDF8B20Ed757D61ff157719F33Ec332402)
 
