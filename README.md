@@ -21,9 +21,22 @@ Built with [Hono](https://hono.dev), [viem](https://viem.sh), and [Zod](https://
 
 **Facilitator Address**: [`0x40252CFDF8B20Ed757D61ff157719F33Ec332402`](https://basescan.org/address/0x40252CFDF8B20Ed757D61ff157719F33Ec332402)
 
-## How It Works
+## What is x402? (Plain English)
 
-The x402 protocol enables HTTP 402-based micropayments. This facilitator acts as the trusted intermediary that verifies payment signatures and settles them on-chain.
+You know how some websites show a paywall? x402 is like that, but for APIs — and instead of credit cards, it uses crypto (USDC stablecoins).
+
+Here's the simple version:
+
+1. **Your app** tries to call a paid API
+2. The API says **"pay me first"** (HTTP 402)
+3. Your app **signs a payment** with its crypto wallet (no transaction yet — just a signature)
+4. The API sends that signature to the **facilitator** (that's us!)
+5. The facilitator **settles the payment on-chain** and tells the API "they paid"
+6. The API **gives your app the data**
+
+The best part? The **user never pays gas fees** — the facilitator covers those. The user only pays the actual price of the API call in USDC (or USDs/SPA).
+
+## How It Works
 
 <p align="center">
   <img src="docs/x402-flow.svg" alt="x402 Payment Flow" width="800"/>
@@ -365,6 +378,180 @@ Standard x402 protocol discovery endpoint. Allows clients and crawlers to auto-d
 curl https://x402.sperax.io/.well-known/x402
 ```
 
+## Tutorials & Examples
+
+### Example 1: Check if the Facilitator is Running
+
+The simplest way to test — just hit the root URL:
+
+```bash
+curl https://x402.sperax.io/
+```
+
+You should see:
+```json
+{
+  "name": "SperaxOS x402 Facilitator",
+  "docs": "https://github.com/Sperax/x402-facilitator",
+  "endpoints": ["/verify", "/settle", "/health", "/info", "/supported", ...]
+}
+```
+
+### Example 2: Check Gas Balances (Is the Facilitator Funded?)
+
+Before settling payments, the facilitator needs ETH for gas. Check if it's funded:
+
+```bash
+curl https://x402.sperax.io/balances
+```
+
+If you see `"lowGas": true` on any chain, the facilitator needs more ETH on that chain.
+
+### Example 3: Build a Paid API with Express.js
+
+Here's a complete example of a Node.js API that charges $0.01 per request using x402:
+
+```ts
+import express from "express";
+
+const app = express();
+const FACILITATOR_URL = "https://x402.sperax.io";
+const MY_WALLET = "0xYourWalletAddress"; // where you receive payments
+
+app.get("/premium-data", async (req, res) => {
+  const paymentHeader = req.headers["x-payment"];
+
+  // Step 1: No payment? Tell the client what to pay
+  if (!paymentHeader) {
+    return res.status(402).json({
+      x402Version: 1,
+      accepts: [{
+        chainId: 8453,
+        asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+        payTo: MY_WALLET,
+        maxAmountRequired: "10000", // $0.01 (USDC has 6 decimals)
+      }],
+      facilitatorUrl: FACILITATOR_URL,
+    });
+  }
+
+  // Step 2: Client sent a payment — ask the facilitator to settle it
+  const settleResponse = await fetch(`${FACILITATOR_URL}/settle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      paymentPayload: JSON.parse(paymentHeader as string),
+      paymentRequirements: {
+        chainId: 8453,
+        asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        payTo: MY_WALLET,
+        maxAmountRequired: "10000",
+      },
+    }),
+  });
+
+  const result = await settleResponse.json();
+
+  // Step 3: Payment settled? Serve the premium data
+  if (result.success) {
+    return res.json({
+      data: "Here's your premium data!",
+      paidWith: result.txHash,
+    });
+  }
+
+  return res.status(402).json({ error: "Payment failed", reason: result.errorReason });
+});
+
+app.listen(3000, () => console.log("Paid API running on :3000"));
+```
+
+### Example 4: Use with the x402 SDK (Recommended)
+
+The [x402 SDK](https://github.com/coinbase/x402) handles the client-side payment flow automatically:
+
+```ts
+import { createPaymentClient } from "@anthropic/x402-sdk";
+
+// The SDK handles everything: 402 detection, signing, retrying with payment
+const client = createPaymentClient({
+  wallet: yourWallet, // viem wallet client
+  facilitatorUrl: "https://x402.sperax.io",
+});
+
+// Just fetch like normal — the SDK intercepts 402s and pays automatically
+const response = await client.fetch("https://api.example.com/premium-data");
+const data = await response.json();
+```
+
+### Example 5: Monitor Your Facilitator
+
+If you're running your own instance, here's how to monitor it:
+
+```bash
+# Check health of all chains
+curl https://x402.sperax.io/health
+
+# Check gas balances (fund the wallet if lowGas is true)
+curl https://x402.sperax.io/balances
+
+# Check settlement stats
+curl https://x402.sperax.io/metrics
+
+# Check current gas costs per chain
+curl https://x402.sperax.io/fees
+
+# Look up a specific settlement
+curl https://x402.sperax.io/status/0xYourTxHash
+```
+
+### Example 6: AI Agent Autonomous Payments
+
+AI agents on [SperaxOS](https://chat.sperax.io) can pay for APIs without human intervention:
+
+```ts
+// Agent discovers a paid API
+const response = await fetch("https://api.example.com/data");
+
+if (response.status === 402) {
+  // Agent reads the payment requirements
+  const requirements = await response.json();
+
+  // Agent signs the payment with its own wallet
+  const signature = await agentWallet.signTypedData(/* EIP-712 message */);
+
+  // Agent retries with the signed payment attached
+  const paidResponse = await fetch("https://api.example.com/data", {
+    headers: { "X-PAYMENT": JSON.stringify(signedPayload) },
+  });
+
+  // Agent gets the data it needed
+  const data = await paidResponse.json();
+}
+```
+
+This is the foundation of **agent-to-agent commerce** — AI agents paying each other for services, data, and compute.
+
+### FAQ
+
+**Q: Do I need to run my own facilitator?**
+No! You can use the public Sperax facilitator at `https://x402.sperax.io` for free. It's open to everyone.
+
+**Q: What does it cost to use?**
+The Sperax facilitator is **fee-free** — you only pay the USDC amount for the API call. The facilitator covers gas costs.
+
+**Q: What tokens are supported?**
+USDC (on Base, Arbitrum, Ethereum), USDs (on Arbitrum), and SPA (on Arbitrum, Ethereum). USDC uses EIP-3009, while USDs and SPA use EIP-2612 permit.
+
+**Q: How fast are settlements?**
+Base and Arbitrum settle in ~2 seconds. Ethereum in ~12 seconds.
+
+**Q: Is my money safe?**
+Yes. The facilitator is **non-custodial** — it never holds your tokens. Payments go directly from the payer to the recipient via smart contract. The facilitator just submits the pre-signed transaction.
+
+**Q: Can I run my own facilitator?**
+Yes! Clone this repo, set your private key and RPC URLs, and deploy. See the Quick Start and Deployment sections below.
+
 ## Deployment
 
 ### Railway (recommended)
@@ -461,7 +648,12 @@ src/
 │   ├── settle.ts                # POST /settle
 │   ├── health.ts                # GET /health
 │   ├── info.ts                  # GET /info
-│   └── supported.ts             # GET /supported
+│   ├── supported.ts             # GET /supported
+│   ├── balances.ts              # GET /balances
+│   ├── metrics.ts               # GET /metrics
+│   ├── fees.ts                  # GET /fees
+│   ├── status.ts                # GET /status/:txHash
+│   └── well-known.ts            # GET /.well-known/x402
 ├── middleware/
 │   ├── cors.ts                  # CORS configuration
 │   ├── rateLimit.ts             # Per-IP rate limiting
