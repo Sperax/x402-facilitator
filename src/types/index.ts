@@ -40,9 +40,10 @@ export interface VerifyResult {
 }
 
 /** x402 spec response for POST /verify
- *  Includes both `isValid` (Coinbase SDK) and `valid` (x402 draft) for compatibility */
+ *  Matches SDK VerifyResponseSchema: { isValid, invalidReason?, payer? }
+ *  Also includes `valid` for x402 draft compatibility */
 export type VerifyResponse =
-  | { valid: true; isValid: true }
+  | { valid: true; isValid: true; payer: Address }
   | { valid: false; isValid: false; invalidReason: string };
 
 /** Result of on-chain settlement */
