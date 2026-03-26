@@ -21,22 +21,8 @@ Built with [Hono](https://hono.dev), [viem](https://viem.sh), and [Zod](https://
 
 The x402 protocol enables HTTP 402-based micropayments. This facilitator acts as the trusted intermediary that verifies payment signatures and settles them on-chain:
 
-```
-Client                    Resource Server              Facilitator            Blockchain
-  |                            |                           |                      |
-  |-- GET /resource ---------->|                           |                      |
-  |<- 402 + payment reqs -----|                           |                      |
-  |                            |                           |                      |
-  |  (sign EIP-712 authorization)                          |                      |
-  |                            |                           |                      |
-  |-- GET /resource + X-402 ->|                           |                      |
-  |                            |-- POST /settle ---------->|                      |
-  |                            |                           |-- transferWith ----->|
-  |                            |                           |   Authorization      |
-  |                            |                           |<- tx receipt --------|
-  |                            |<- { success, txHash } ----|                      |
-  |<- 200 + resource ---------|                           |                      |
-```
+![x402 Protocol Flow](docs/x402-flow.svg)
+
 
 1. Client requests a paid resource, gets a **402** response with payment requirements
 2. Client signs an **EIP-712** `TransferWithAuthorization` ([EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)) message
