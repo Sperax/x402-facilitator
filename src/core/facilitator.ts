@@ -98,7 +98,7 @@ export class Facilitator {
         return { valid: false, isValid: false, invalidReason: result.reason ?? 'Unknown' };
       }
 
-      return { valid: true, isValid: true };
+      return { valid: true, isValid: true, payer: result.signer ?? payment.authorization.from };
     } catch (error: unknown) {
       metrics.verifyErrors.inc();
       const message = error instanceof Error ? error.message : 'Unknown error';
