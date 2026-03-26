@@ -10,6 +10,11 @@ import { createSettleRoute } from './routes/settle.js';
 import { createHealthRoute } from './routes/health.js';
 import { createInfoRoute } from './routes/info.js';
 import { createSupportedRoute } from './routes/supported.js';
+import { createBalancesRoute } from './routes/balances.js';
+import { createMetricsRoute } from './routes/metrics.js';
+import { createStatusRoute } from './routes/status.js';
+import { createFeesRoute } from './routes/fees.js';
+import { createWellKnownRoute } from './routes/well-known.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import { logger } from './utils/logger.js';
@@ -33,12 +38,17 @@ app.route('/settle', createSettleRoute(facilitator));
 app.route('/health', createHealthRoute(config));
 app.route('/info', createInfoRoute(facilitator, config));
 app.route('/supported', createSupportedRoute(config));
+app.route('/balances', createBalancesRoute(config, facilitator.getAddress()));
+app.route('/metrics', createMetricsRoute());
+app.route('/status', createStatusRoute(config));
+app.route('/fees', createFeesRoute(config));
+app.route('/.well-known/x402', createWellKnownRoute(facilitator, config));
 
 // Root redirect
 app.get('/', (c) => c.json({
   name: 'SperaxOS x402 Facilitator',
   docs: 'https://github.com/Sperax/x402-facilitator',
-  endpoints: ['/verify', '/settle', '/health', '/info', '/supported'],
+  endpoints: ['/verify', '/settle', '/health', '/info', '/supported', '/balances', '/metrics', '/status/:txHash', '/fees', '/.well-known/x402'],
 }));
 
 // 404
