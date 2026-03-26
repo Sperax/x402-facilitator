@@ -52,7 +52,7 @@ export function createHealthRoute(config: FacilitatorConfig): Hono {
       chains: chainStatuses,
     };
 
-    return c.json(response, allConnected ? 200 : 503);
+    return c.json(response, 200);
   });
 
   return route;

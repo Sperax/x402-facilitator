@@ -2,6 +2,12 @@ import { z } from 'zod';
 import type { FacilitatorConfig, ChainConfig, Hex } from '../types/index.js';
 import { CHAIN_CONFIGS } from './chains.js';
 
+/** Parse string booleans correctly — "false", "0", "" → false, everything else → true */
+const booleanString = z
+  .string()
+  .optional()
+  .transform((val) => val !== undefined && val !== '' && val.toLowerCase() !== 'false' && val !== '0');
+
 const envSchema = z.object({
   FACILITATOR_PRIVATE_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'Must be a 32-byte hex private key'),
 
@@ -21,11 +27,11 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   // Feature flags
-  ENABLE_BASE: z.coerce.boolean().default(true),
-  ENABLE_BASE_SEPOLIA: z.coerce.boolean().default(true),
-  ENABLE_ARBITRUM: z.coerce.boolean().default(false),
-  ENABLE_ARBITRUM_SEPOLIA: z.coerce.boolean().default(false),
-  ENABLE_ETHEREUM: z.coerce.boolean().default(false),
+  ENABLE_BASE: booleanString.default('true'),
+  ENABLE_BASE_SEPOLIA: booleanString.default('true'),
+  ENABLE_ARBITRUM: booleanString.default('false'),
+  ENABLE_ARBITRUM_SEPOLIA: booleanString.default('false'),
+  ENABLE_ETHEREUM: booleanString.default('false'),
 
   REDIS_URL: z.string().url().optional(),
 });
