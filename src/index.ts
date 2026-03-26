@@ -37,7 +37,7 @@ app.route('/supported', createSupportedRoute(config));
 // Root redirect
 app.get('/', (c) => c.json({
   name: 'SperaxOS x402 Facilitator',
-  docs: 'https://github.com/nirholas/x402-facilitator',
+  docs: 'https://github.com/Sperax/x402-facilitator',
   endpoints: ['/verify', '/settle', '/health', '/info', '/supported'],
 }));
 
