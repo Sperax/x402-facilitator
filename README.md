@@ -34,7 +34,7 @@ Here's the simple version:
 5. The facilitator **settles the payment on-chain** and tells the API "they paid"
 6. The API **gives your app the data**
 
-The best part? The **user never pays gas fees** — the facilitator covers those. The user only pays the actual price of the API call in USDC (or USDs/SPA).
+The best part? The **user never pays gas fees** — the facilitator covers those. The user only pays the actual price of the API call in USDC or USDs.
 
 ## How It Works
 
@@ -70,17 +70,19 @@ The best part? The **user never pays gas fees** — the facilitator covers those
 |---|---|---|---|
 | **USDC** | Base, Base Sepolia, Arbitrum, Ethereum | See above | EIP-3009 `transferWithAuthorization` |
 | **USDs** | Arbitrum | [`0xD74f5255D557944cf7Dd0E45FF521520002D5748`](https://arbiscan.io/token/0xD74f5255D557944cf7Dd0E45FF521520002D5748) | EIP-2612 `permit` + `transferFrom` |
-| **SPA** | Arbitrum | [`0x5575552988A3A80504bBaeB1311674fCFd40aD4B`](https://arbiscan.io/token/0x5575552988A3A80504bBaeB1311674fCFd40aD4B) | EIP-2612 `permit` + `transferFrom` |
-| **SPA** | Ethereum | [`0xB4A3B0Faf0Ab53df58001804DdA5Bfc6a3D59008`](https://etherscan.io/token/0xB4A3B0Faf0Ab53df58001804DdA5Bfc6a3D59008) | EIP-2612 `permit` + `transferFrom` |
 
 ### Settlement Schemes
 
 The facilitator supports two gasless settlement mechanisms:
 
 - **EIP-3009** (`transferWithAuthorization`): Single on-chain call. Used by Circle's USDC. The client signs a `TransferWithAuthorization` EIP-712 message and the facilitator submits it directly.
-- **EIP-2612** (`permit` + `transferFrom`): Two-step flow. Used by USDs, SPA, and other ERC20Permit tokens. The client signs a `Permit` EIP-712 message, the facilitator calls `permit()` to grant allowance, then `transferFrom()` to move the tokens.
+- **EIP-2612** (`permit` + `transferFrom`): Two-step flow. Used by USDs and other ERC20Permit tokens. The client signs a `Permit` EIP-712 message, the facilitator calls `permit()` to grant allowance, then `transferFrom()` to move the tokens.
 
 Both schemes are fully gasless for the payer — the facilitator pays all gas fees.
+
+### Future: SPA via Permit2
+
+SPA is a standard ERC20 without native EIP-3009 or EIP-2612 support. Once [Permit2](https://github.com/Uniswap/permit2) integration is added, SPA (and any ERC-20) can be used for gasless x402 settlements. See the Ecosystem Contracts section below for SPA addresses.
 
 ## Sperax Ecosystem Contracts
 
@@ -541,7 +543,7 @@ No! You can use the public Sperax facilitator at `https://x402.sperax.io` for fr
 The Sperax facilitator is **fee-free** — you only pay the USDC amount for the API call. The facilitator covers gas costs.
 
 **Q: What tokens are supported?**
-USDC (on Base, Arbitrum, Ethereum), USDs (on Arbitrum), and SPA (on Arbitrum, Ethereum). USDC uses EIP-3009, while USDs and SPA use EIP-2612 permit.
+USDC (on Base, Arbitrum, Ethereum) and USDs (on Arbitrum). USDC uses EIP-3009, USDs uses EIP-2612 permit. SPA support is planned via Permit2.
 
 **Q: How fast are settlements?**
 Base and Arbitrum settle in ~2 seconds. Ethereum in ~12 seconds.

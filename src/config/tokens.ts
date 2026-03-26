@@ -18,8 +18,8 @@ export interface TokenInfo {
 /**
  * Supported tokens per chain.
  * USDC uses EIP-3009 (transferWithAuthorization).
- * USDs uses EIP-2612 (permit + transferFrom).
- * SPA is standard ERC20 — listed for ecosystem awareness but requires approve+transfer.
+ * USDs uses EIP-2612 (permit + transferFrom) — domain name is "Sperax USD" (from on-chain name()).
+ * SPA is standard ERC20 without EIP-2612 — not included as a settlement token.
  */
 const TOKEN_REGISTRY: Record<SupportedChainId, TokenInfo[]> = {
   1: [
@@ -30,14 +30,6 @@ const TOKEN_REGISTRY: Record<SupportedChainId, TokenInfo[]> = {
       domainName: 'USD Coin',
       domainVersion: '2',
       scheme: 'eip3009',
-    },
-    {
-      symbol: 'SPA',
-      address: '0xB4A3B0Faf0Ab53df58001804DdA5Bfc6a3D59008',
-      decimals: 18,
-      domainName: 'Sperax',
-      domainVersion: '1',
-      scheme: 'eip2612',
     },
   ],
   8453: [
@@ -73,15 +65,7 @@ const TOKEN_REGISTRY: Record<SupportedChainId, TokenInfo[]> = {
       symbol: 'USDs',
       address: '0xD74f5255D557944cf7Dd0E45FF521520002D5748',
       decimals: 18,
-      domainName: 'USDs',
-      domainVersion: '1',
-      scheme: 'eip2612',
-    },
-    {
-      symbol: 'SPA',
-      address: '0x5575552988A3A80504bBaeB1311674fCFd40aD4B',
-      decimals: 18,
-      domainName: 'Sperax',
+      domainName: 'Sperax USD',
       domainVersion: '1',
       scheme: 'eip2612',
     },
