@@ -9,6 +9,7 @@ import { createVerifyRoute } from './routes/verify.js';
 import { createSettleRoute } from './routes/settle.js';
 import { createHealthRoute } from './routes/health.js';
 import { createInfoRoute } from './routes/info.js';
+import { createSupportedRoute } from './routes/supported.js';
 import { corsMiddleware } from './middleware/cors.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import { logger } from './utils/logger.js';
@@ -31,12 +32,13 @@ app.route('/verify', createVerifyRoute(facilitator));
 app.route('/settle', createSettleRoute(facilitator));
 app.route('/health', createHealthRoute(config));
 app.route('/info', createInfoRoute(facilitator, config));
+app.route('/supported', createSupportedRoute(config));
 
 // Root redirect
 app.get('/', (c) => c.json({
   name: 'SperaxOS x402 Facilitator',
-  docs: 'https://github.com/Sperax/x402-facilitator',
-  endpoints: ['/verify', '/settle', '/health', '/info'],
+  docs: 'https://github.com/nirholas/x402-facilitator',
+  endpoints: ['/verify', '/settle', '/health', '/info', '/supported'],
 }));
 
 // 404
