@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace" font-size="12">
+  <style>
+    .label { font-weight: bold; font-size: 14px; fill: #fff; }
+    .box { rx: 8; ry: 8; }
+    .msg { font-size: 11px; fill: #e0e0e0; }
+    .arrow { stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .arrow-back { stroke-width: 2; fill: none; marker-end: url(#arrowhead-back); }
+    .note { font-size: 10px; fill: #888; font-style: italic; }
+    .step { opacity: 0; }
+    .step1 { animation: fadeIn 0.4s 0.5s forwards; }
+    .step2 { animation: fadeIn 0.4s 1.2s forwards; }
+    .step3 { animation: fadeIn 0.4s 2.0s forwards; }
+    .step4 { animation: fadeIn 0.4s 2.8s forwards; }
+    .step5 { animation: fadeIn 0.4s 3.6s forwards; }
+    .step6 { animation: fadeIn 0.4s 4.4s forwards; }
+    .step7 { animation: fadeIn 0.4s 5.2s forwards; }
+    .step8 { animation: fadeIn 0.4s 6.0s forwards; }
+    .step9 { animation: fadeIn 0.4s 6.8s forwards; }
+    @keyframes fadeIn { to { opacity: 1; } }
+    @keyframes dash { to { stroke-dashoffset: 0; } }
+    .line-anim { stroke-dasharray: 200; stroke-dashoffset: 200; }
+    .l1 { animation: dash 0.5s 0.5s forwards; }
+    .l2 { animation: dash 0.5s 1.2s forwards; }
+    .l3 { animation: dash 0.5s 2.8s forwards; }
+    .l4 { animation: dash 0.5s 3.6s forwards; }
+    .l5 { animation: dash 0.5s 4.4s forwards; }
+    .l6 { animation: dash 0.5s 5.2s forwards; }
+    .l7 { animation: dash 0.5s 6.0s forwards; }
+    .l8 { animation: dash 0.5s 6.8s forwards; }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#60a5fa"/>
+    </marker>
+    <marker id="arrowhead-back" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#34d399"/>
+    </marker>
+    <marker id="arrowhead-orange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#fb923c"/>
+    </marker>
+    <marker id="arrowhead-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#c084fc"/>
+    </marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="url(#bg)" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" fill="#f8fafc" font-size="16" font-weight="bold">x402 Payment Protocol Flow</text>
+
+  <!-- Column headers -->
+  <rect x="60" y="48" width="120" height="32" fill="#3b82f6" class="box"/>
+  <text x="120" y="68" text-anchor="middle" class="label">Client</text>
+
+  <rect x="270" y="48" width="150" height="32" fill="#8b5cf6" class="box"/>
+  <text x="345" y="68" text-anchor="middle" class="label">Resource Server</text>
+
+  <rect x="510" y="48" width="130" height="32" fill="#f59e0b" class="box"/>
+  <text x="575" y="68" text-anchor="middle" class="label">Facilitator</text>
+
+  <rect x="730" y="48" width="120" height="32" fill="#10b981" class="box"/>
+  <text x="790" y="68" text-anchor="middle" class="label">Blockchain</text>
+
+  <!-- Lifelines -->
+  <line x1="120" y1="80" x2="120" y2="490" stroke="#334155" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="345" y1="80" x2="345" y2="490" stroke="#334155" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="575" y1="80" x2="575" y2="490" stroke="#334155" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="790" y1="80" x2="790" y2="490" stroke="#334155" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- Step 1: GET /resource -->
+  <g class="step step1">
+    <line x1="125" y1="115" x2="340" y2="115" stroke="#60a5fa" class="arrow line-anim l1"/>
+    <text x="232" y="110" text-anchor="middle" class="msg" fill="#60a5fa">GET /resource</text>
+    <rect x="15" y="103" width="20" height="20" rx="10" fill="#3b82f6"/>
+    <text x="25" y="117" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">1</text>
+  </g>
+
+  <!-- Step 2: 402 + payment requirements -->
+  <g class="step step2">
+    <line x1="340" y1="155" x2="125" y2="155" stroke="#c084fc" class="arrow" style="marker-end:url(#arrowhead-purple)" class="line-anim l2"/>
+    <text x="232" y="150" text-anchor="middle" class="msg" fill="#c084fc">402 + PaymentRequirements</text>
+    <rect x="15" y="143" width="20" height="20" rx="10" fill="#8b5cf6"/>
+    <text x="25" y="157" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">2</text>
+  </g>
+
+  <!-- Step 3: Sign EIP-712 (note) -->
+  <g class="step step3">
+    <rect x="50" y="185" width="140" height="30" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+    <text x="120" y="204" text-anchor="middle" class="note" fill="#93c5fd">✍️ Sign EIP-712 auth</text>
+    <rect x="15" y="188" width="20" height="20" rx="10" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+    <text x="25" y="202" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="bold">3</text>
+  </g>
+
+  <!-- Step 4: GET /resource + X-402 header -->
+  <g class="step step4">
+    <line x1="125" y1="245" x2="340" y2="245" stroke="#60a5fa" class="arrow line-anim l3"/>
+    <text x="232" y="240" text-anchor="middle" class="msg" fill="#60a5fa">GET /resource + X-PAYMENT header</text>
+    <rect x="15" y="233" width="20" height="20" rx="10" fill="#3b82f6"/>
+    <text x="25" y="247" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">4</text>
+  </g>
+
+  <!-- Step 5: POST /settle -->
+  <g class="step step5">
+    <line x1="350" y1="285" x2="570" y2="285" stroke="#fb923c" class="arrow" style="marker-end:url(#arrowhead-orange)" class="line-anim l4"/>
+    <text x="460" y="280" text-anchor="middle" class="msg" fill="#fb923c">POST /settle</text>
+    <rect x="260" y="273" width="20" height="20" rx="10" fill="#f59e0b"/>
+    <text x="270" y="287" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">5</text>
+  </g>
+
+  <!-- Step 6: transferWithAuthorization -->
+  <g class="step step6">
+    <line x1="580" y1="325" x2="785" y2="325" stroke="#34d399" class="arrow" style="marker-end:url(#arrowhead-back)" class="line-anim l5"/>
+    <text x="682" y="320" text-anchor="middle" class="msg" fill="#34d399">transferWithAuthorization</text>
+    <rect x="500" y="313" width="20" height="20" rx="10" fill="#10b981"/>
+    <text x="510" y="327" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">6</text>
+  </g>
+
+  <!-- Step 7: tx receipt -->
+  <g class="step step7">
+    <line x1="785" y1="365" x2="580" y2="365" stroke="#34d399" class="arrow" style="marker-end:url(#arrowhead-back)" class="line-anim l6"/>
+    <text x="682" y="360" text-anchor="middle" class="msg" fill="#34d399">tx receipt ✓</text>
+    <rect x="500" y="353" width="20" height="20" rx="10" fill="#10b981"/>
+    <text x="510" y="367" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">7</text>
+  </g>
+
+  <!-- Step 8: success + txHash -->
+  <g class="step step8">
+    <line x1="570" y1="405" x2="350" y2="405" stroke="#fb923c" class="arrow" style="marker-end:url(#arrowhead-orange)" class="line-anim l7"/>
+    <text x="460" y="400" text-anchor="middle" class="msg" fill="#fb923c">{"success": true, "txHash": "0x..."}</text>
+    <rect x="260" y="393" width="20" height="20" rx="10" fill="#f59e0b"/>
+    <text x="270" y="407" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">8</text>
+  </g>
+
+  <!-- Step 9: 200 + resource -->
+  <g class="step step9">
+    <line x1="340" y1="445" x2="125" y2="445" stroke="#c084fc" class="arrow" style="marker-end:url(#arrowhead-purple)" class="line-anim l8"/>
+    <text x="232" y="440" text-anchor="middle" class="msg" fill="#c084fc">200 OK + resource content</text>
+    <rect x="15" y="433" width="20" height="20" rx="10" fill="#8b5cf6"/>
+    <text x="25" y="447" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">9</text>
+  </g>
+
+  <!-- Footer -->
+  <text x="450" y="500" text-anchor="middle" fill="#475569" font-size="10">x402.sperax.io — SperaxOS x402 Payment Facilitator</text>
+</svg>
