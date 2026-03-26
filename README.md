@@ -1,4 +1,4 @@
-# @sperax/x402-facilitator
+# @sperax/x402-facilitator 
 
 An [x402](https://github.com/coinbase/x402) payment facilitator that verifies and settles EIP-3009 USDC micropayments on Base, Arbitrum, and Ethereum.
 
