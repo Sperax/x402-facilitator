@@ -18,14 +18,28 @@ export interface TransferAuthorization {
   nonce: Hex;
 }
 
+/** EIP-2612 permit parameters */
+export interface PermitAuthorization {
+  owner: Address;
+  spender: Address;
+  to: Address;
+  value: bigint;
+  nonce: bigint;
+  deadline: bigint;
+}
+
 /** x402 payment payload sent by the client */
 export interface X402Payment {
   /** Chain ID where the payment should be settled */
   chainId: SupportedChainId;
   /** Token contract address (e.g. USDC) */
   token: Address;
-  /** EIP-3009 authorization parameters */
+  /** Settlement scheme: 'eip3009' (default) or 'eip2612' */
+  scheme?: 'eip3009' | 'eip2612';
+  /** EIP-3009 authorization parameters (when scheme is eip3009 or omitted) */
   authorization: TransferAuthorization;
+  /** EIP-2612 permit parameters (when scheme is eip2612) */
+  permit?: PermitAuthorization;
   /** EIP-712 signature (r + s + v) */
   signature: Hex;
 }

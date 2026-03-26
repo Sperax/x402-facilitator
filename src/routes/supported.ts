@@ -19,6 +19,7 @@ export function createSupportedRoute(config: FacilitatorConfig): Hono {
         x402Version: 1,
         scheme: 'exact' as const,
         network: getNetworkName(chain.chainId as SupportedChainId),
+        settlementScheme: token.scheme,
         extra: {
           name: token.symbol,
           decimals: token.decimals,

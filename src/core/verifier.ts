@@ -10,7 +10,7 @@ import { base, arbitrum, mainnet, baseSepolia, arbitrumSepolia } from 'viem/chai
 
 import type { SupportedChainId, VerifyResult, X402Payment, PaymentRequirements } from '../types/index.js';
 import { getChainConfig } from '../config/chains.js';
-import { getTokenConfig, getTokenDomain } from '../config/tokens.js';
+import { getTokenConfig, getTokenDomain, type SettlementScheme } from '../config/tokens.js';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
@@ -38,6 +38,16 @@ const TRANSFER_WITH_AUTHORIZATION_TYPES = {
     { name: 'validAfter', type: 'uint256' },
     { name: 'validBefore', type: 'uint256' },
     { name: 'nonce', type: 'bytes32' },
+  ],
+} as const;
+
+const PERMIT_TYPES = {
+  Permit: [
+    { name: 'owner', type: 'address' },
+    { name: 'spender', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
   ],
 } as const;
 
@@ -117,31 +127,54 @@ export class PaymentVerifier {
       return { valid: false, reason: `No EIP-712 domain for token ${token} on chain ${chainId}` };
     }
 
+    const scheme = payment.scheme ?? tokenConfig?.scheme ?? 'eip3009';
+
     try {
-      // EIP-712 signature verification
       const domain = getTokenDomain(token, chainId);
-      const valid = await verifyTypedData({
-        address: authorization.from,
-        domain,
-        types: TRANSFER_WITH_AUTHORIZATION_TYPES,
-        primaryType: 'TransferWithAuthorization',
-        message: {
-          from: authorization.from,
-          to: authorization.to,
-          value: authorization.value,
-          validAfter: authorization.validAfter,
-          validBefore: authorization.validBefore,
-          nonce: authorization.nonce,
-        },
-        signature,
-      });
+      let valid: boolean;
+      let signer: Address;
+
+      if (scheme === 'eip2612' && payment.permit) {
+        valid = await verifyTypedData({
+          address: payment.permit.owner,
+          domain,
+          types: PERMIT_TYPES,
+          primaryType: 'Permit',
+          message: {
+            owner: payment.permit.owner,
+            spender: payment.permit.spender,
+            value: payment.permit.value,
+            nonce: payment.permit.nonce,
+            deadline: payment.permit.deadline,
+          },
+          signature,
+        });
+        signer = payment.permit.owner;
+      } else {
+        valid = await verifyTypedData({
+          address: authorization.from,
+          domain,
+          types: TRANSFER_WITH_AUTHORIZATION_TYPES,
+          primaryType: 'TransferWithAuthorization',
+          message: {
+            from: authorization.from,
+            to: authorization.to,
+            value: authorization.value,
+            validAfter: authorization.validAfter,
+            validBefore: authorization.validBefore,
+            nonce: authorization.nonce,
+          },
+          signature,
+        });
+        signer = authorization.from;
+      }
 
       if (!valid) {
         return { valid: false, reason: 'Invalid signature — signer does not match from address' };
       }
 
-      logger.info(`Payment verified: ${authorization.from} → ${authorization.to} (${authorization.value} on chain ${chainId})`);
-      return { valid: true, signer: authorization.from };
+      logger.info(`Payment verified (${scheme}): ${signer} → ${payment.permit?.to ?? authorization.to} (${payment.permit?.value ?? authorization.value} on chain ${chainId})`);
+      return { valid: true, signer };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown verification error';
       return { valid: false, reason: message };
@@ -178,23 +211,50 @@ export async function verifyPayment(payment: X402Payment): Promise<VerifyResult>
     return { valid: false, reason: 'Value must be positive' };
   }
 
+  // Determine scheme from payment or token config
+  const scheme: SettlementScheme = payment.scheme ?? tokenConfig.scheme ?? 'eip3009';
+
   try {
     const domain = getTokenDomain(token, chainId);
-    const valid = await verifyTypedData({
-      address: authorization.from,
-      domain,
-      types: TRANSFER_WITH_AUTHORIZATION_TYPES,
-      primaryType: 'TransferWithAuthorization',
-      message: {
-        from: authorization.from,
-        to: authorization.to,
-        value: authorization.value,
-        validAfter: authorization.validAfter,
-        validBefore: authorization.validBefore,
-        nonce: authorization.nonce,
-      },
-      signature,
-    });
+    let valid: boolean;
+    let signer: Address;
+
+    if (scheme === 'eip2612' && payment.permit) {
+      // EIP-2612 permit verification
+      valid = await verifyTypedData({
+        address: payment.permit.owner,
+        domain,
+        types: PERMIT_TYPES,
+        primaryType: 'Permit',
+        message: {
+          owner: payment.permit.owner,
+          spender: payment.permit.spender,
+          value: payment.permit.value,
+          nonce: payment.permit.nonce,
+          deadline: payment.permit.deadline,
+        },
+        signature,
+      });
+      signer = payment.permit.owner;
+    } else {
+      // EIP-3009 transferWithAuthorization verification
+      valid = await verifyTypedData({
+        address: authorization.from,
+        domain,
+        types: TRANSFER_WITH_AUTHORIZATION_TYPES,
+        primaryType: 'TransferWithAuthorization',
+        message: {
+          from: authorization.from,
+          to: authorization.to,
+          value: authorization.value,
+          validAfter: authorization.validAfter,
+          validBefore: authorization.validBefore,
+          nonce: authorization.nonce,
+        },
+        signature,
+      });
+      signer = authorization.from;
+    }
 
     if (!valid) {
       return { valid: false, reason: 'Invalid signature — signer does not match from address' };
@@ -205,15 +265,16 @@ export async function verifyPayment(payment: X402Payment): Promise<VerifyResult>
       address: token,
       abi: [{ inputs: [{ name: 'account', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' }],
       functionName: 'balanceOf',
-      args: [authorization.from],
+      args: [signer],
     }) as bigint;
 
-    if (balance < authorization.value) {
-      return { valid: false, reason: 'Insufficient token balance', signer: authorization.from };
+    const value = payment.permit?.value ?? authorization.value;
+    if (balance < value) {
+      return { valid: false, reason: 'Insufficient token balance', signer };
     }
 
-    logger.info(`Payment verified: ${authorization.from} → ${authorization.to} (${authorization.value} on chain ${chainId})`);
-    return { valid: true, signer: authorization.from };
+    logger.info(`Payment verified (${scheme}): ${signer} → ${payment.permit?.to ?? authorization.to} (${value} on chain ${chainId})`);
+    return { valid: true, signer };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown verification error';
     logger.error(`Verification failed: ${message}`);

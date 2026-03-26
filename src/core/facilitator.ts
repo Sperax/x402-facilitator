@@ -13,7 +13,8 @@ import type {
   X402Payment,
   PaymentRequirements,
 } from '../types/index.js';
-import { ERC20_TRANSFER_WITH_AUTHORIZATION_ABI } from '../abi/erc20-permit.js';
+import { ERC20_TRANSFER_WITH_AUTHORIZATION_ABI, ERC20_PERMIT_ABI } from '../abi/erc20-permit.js';
+import { getTokenConfig } from '../config/tokens.js';
 import { verifyPayment } from './verifier.js';
 import { logger } from '../utils/logger.js';
 import { metrics } from '../utils/metrics.js';
@@ -143,22 +144,67 @@ export class Facilitator {
 
       const { v, r, s } = decomposeSignature(payment.signature);
 
-      const txHash = await (walletClient as any).writeContract({
-        address: payment.token,
-        abi: ERC20_TRANSFER_WITH_AUTHORIZATION_ABI,
-        functionName: 'transferWithAuthorization',
-        args: [
-          payment.authorization.from,
-          payment.authorization.to,
-          payment.authorization.value,
-          payment.authorization.validAfter,
-          payment.authorization.validBefore,
-          payment.authorization.nonce,
-          v,
-          r,
-          s,
-        ],
-      }) as Hex;
+      // Determine settlement scheme from token config or payment
+      const tokenConfig = getTokenConfig(payment.chainId, payment.token);
+      const scheme = payment.scheme ?? tokenConfig?.scheme ?? 'eip3009';
+
+      let txHash: Hex;
+
+      if (scheme === 'eip2612' && payment.permit) {
+        // EIP-2612: permit() + transferFrom() in two transactions
+        const permitHash = await (walletClient as any).writeContract({
+          address: payment.token,
+          abi: ERC20_PERMIT_ABI,
+          functionName: 'permit',
+          args: [
+            payment.permit.owner,
+            payment.permit.spender,
+            payment.permit.value,
+            payment.permit.deadline,
+            v,
+            r,
+            s,
+          ],
+        }) as Hex;
+
+        // Wait for permit to confirm before transferFrom
+        await publicClient.waitForTransactionReceipt({
+          hash: permitHash,
+          confirmations: 1,
+          timeout: 60_000,
+        });
+
+        logger.info({ permitHash, chainId: payment.chainId }, 'Permit tx confirmed');
+
+        txHash = await (walletClient as any).writeContract({
+          address: payment.token,
+          abi: ERC20_PERMIT_ABI,
+          functionName: 'transferFrom',
+          args: [
+            payment.permit.owner,
+            payment.permit.to,
+            payment.permit.value,
+          ],
+        }) as Hex;
+      } else {
+        // EIP-3009: single transferWithAuthorization call
+        txHash = await (walletClient as any).writeContract({
+          address: payment.token,
+          abi: ERC20_TRANSFER_WITH_AUTHORIZATION_ABI,
+          functionName: 'transferWithAuthorization',
+          args: [
+            payment.authorization.from,
+            payment.authorization.to,
+            payment.authorization.value,
+            payment.authorization.validAfter,
+            payment.authorization.validBefore,
+            payment.authorization.nonce,
+            v,
+            r,
+            s,
+          ],
+        }) as Hex;
+      }
 
       logger.info({ txHash, chainId: payment.chainId }, 'Settlement tx submitted');
 

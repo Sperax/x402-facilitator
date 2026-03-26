@@ -51,7 +51,36 @@ The x402 protocol enables HTTP 402-based micropayments. This facilitator acts as
 | Arbitrum Sepolia | `421614` | [`0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d`](https://sepolia.arbiscan.io/token/0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d) | Supported |
 | Ethereum | `1` | [`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`](https://etherscan.io/token/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) | Supported |
 
-All chains use Circle's native USDC with EIP-3009 `transferWithAuthorization` support.
+## Supported Tokens
+
+| Token | Chain | Address | Settlement Scheme |
+|---|---|---|---|
+| **USDC** | Base, Base Sepolia, Arbitrum, Ethereum | See above | EIP-3009 `transferWithAuthorization` |
+| **USDs** | Arbitrum | [`0xD74f5255D557944cf7Dd0E45FF521520002D5748`](https://arbiscan.io/token/0xD74f5255D557944cf7Dd0E45FF521520002D5748) | EIP-2612 `permit` + `transferFrom` |
+| **SPA** | Arbitrum | [`0x5575552988A3A80504bBaeB1311674fCFd40aD4B`](https://arbiscan.io/token/0x5575552988A3A80504bBaeB1311674fCFd40aD4B) | EIP-2612 `permit` + `transferFrom` |
+| **SPA** | Ethereum | [`0xB4A3B0Faf0Ab53df58001804DdA5Bfc6a3D59008`](https://etherscan.io/token/0xB4A3B0Faf0Ab53df58001804DdA5Bfc6a3D59008) | EIP-2612 `permit` + `transferFrom` |
+
+### Settlement Schemes
+
+The facilitator supports two gasless settlement mechanisms:
+
+- **EIP-3009** (`transferWithAuthorization`): Single on-chain call. Used by Circle's USDC. The client signs a `TransferWithAuthorization` EIP-712 message and the facilitator submits it directly.
+- **EIP-2612** (`permit` + `transferFrom`): Two-step flow. Used by USDs, SPA, and other ERC20Permit tokens. The client signs a `Permit` EIP-712 message, the facilitator calls `permit()` to grant allowance, then `transferFrom()` to move the tokens.
+
+Both schemes are fully gasless for the payer — the facilitator pays all gas fees.
+
+## Sperax Ecosystem Contracts
+
+| Contract | Chain | Address |
+|---|---|---|
+| **SPA Token** | Ethereum | [`0xB4A3B0Faf0Ab53df58001804DdA5Bfc6a3D59008`](https://etherscan.io/token/0xB4A3B0Faf0Ab53df58001804DdA5Bfc6a3D59008) |
+| **SPA Token** | Arbitrum | [`0x5575552988A3A80504bBaeB1311674fCFd40aD4B`](https://arbiscan.io/token/0x5575552988A3A80504bBaeB1311674fCFd40aD4B) |
+| **SPA Token** | BNB Chain | [`0x1A9Fd6eC3144Da3Dd6Ea13Ec1C25C58423a379b1`](https://bscscan.com/token/0x1A9Fd6eC3144Da3Dd6Ea13Ec1C25C58423a379b1) |
+| **wSPA** | Ethereum | [`0x2a95FE4c7e64e09856989F9eA0b57B9AB5f770CB`](https://etherscan.io/token/0x2a95FE4c7e64e09856989F9eA0b57B9AB5f770CB) |
+| **USDs** | Arbitrum | [`0xD74f5255D557944cf7Dd0E45FF521520002D5748`](https://arbiscan.io/token/0xD74f5255D557944cf7Dd0E45FF521520002D5748) |
+| **xSPA** | Arbitrum | [`0x0966E72256d6055145902F72F9D3B6a194B9cCc3`](https://arbiscan.io/address/0x0966E72256d6055145902F72F9D3B6a194B9cCc3) |
+| **veSPA** (proxy) | Arbitrum | [`0x2e2071180682Ce6C247B1eF93d382D509F5F6A17`](https://arbiscan.io/address/0x2e2071180682Ce6C247B1eF93d382D509F5F6A17) |
+| **veSPA** (proxy) | Ethereum | [`0xbF82a3212e13b2d407D10f5107b5C8404dE7F403`](https://etherscan.io/address/0xbF82a3212e13b2d407D10f5107b5C8404dE7F403) |
 
 ## Quick Start
 
