@@ -34,7 +34,7 @@ Here's the simple version:
 5. The facilitator **settles the payment on-chain** and tells the API "they paid"
 6. The API **gives your app the data**
 
-The best part? The **user never pays gas fees** — the facilitator covers those. The user only pays the actual price of the API call in USDC or USDs.
+The best part? The **user never pays gas fees** — the facilitator covers those. The user only pays the actual price of the API call in USDC (or USDs, through the [USDs facilitator](https://github.com/Sperax/USDs-x402-facilitator)).
 
 ## How It Works
 
@@ -69,20 +69,16 @@ The best part? The **user never pays gas fees** — the facilitator covers those
 | Token | Chain | Address | Settlement Scheme |
 |---|---|---|---|
 | **USDC** | Base, Base Sepolia, Arbitrum, Ethereum | See above | EIP-3009 `transferWithAuthorization` |
-| **USDs** | Arbitrum | [`0xD74f5255D557944cf7Dd0E45FF521520002D5748`](https://arbiscan.io/token/0xD74f5255D557944cf7Dd0E45FF521520002D5748) | EIP-2612 `permit` + `transferFrom` |
 
-### Settlement Schemes
+### Settlement Scheme
 
-The facilitator supports two gasless settlement mechanisms:
+- **EIP-3009** (`transferWithAuthorization`): Single on-chain call. Used by Circle's USDC. The client signs a `TransferWithAuthorization` EIP-712 message and the facilitator submits it directly. The payer pays no gas.
 
-- **EIP-3009** (`transferWithAuthorization`): Single on-chain call. Used by Circle's USDC. The client signs a `TransferWithAuthorization` EIP-712 message and the facilitator submits it directly.
-- **EIP-2612** (`permit` + `transferFrom`): Two-step flow. Used by USDs and other ERC20Permit tokens. The client signs a `Permit` EIP-712 message, the facilitator calls `permit()` to grant allowance, then `transferFrom()` to move the tokens.
+Before settling, `/verify` checks that the signed authorization pays the required `payTo`, covers `maxAmountRequired`, uses the required asset and chain, is inside its validity window, has an unused nonce on-chain, and is backed by the payer's balance.
 
-Both schemes are fully gasless for the payer — the facilitator pays all gas fees.
+### USDs and other ERC-20s via Permit2
 
-### Future: SPA via Permit2
-
-SPA is a standard ERC20 without native EIP-3009 or EIP-2612 support. Once [Permit2](https://github.com/Uniswap/permit2) integration is added, SPA (and any ERC-20) can be used for gasless x402 settlements. See the Ecosystem Contracts section below for SPA addresses.
+USDs has no EIP-3009 and its `permit()` cannot be used for settlement, so USDs payments settle through [Permit2](https://github.com/Uniswap/permit2) on the [USDs x402 facilitator](https://github.com/Sperax/USDs-x402-facilitator), live at `https://x402.sperax.io`. The same Permit2 path serves SPA and any other standard ERC-20. See the Ecosystem Contracts section below for addresses.
 
 ## Sperax Ecosystem Contracts
 
@@ -543,7 +539,7 @@ No! You can use the public Sperax facilitator at `https://x402.sperax.io` for fr
 The Sperax facilitator is **fee-free** — you only pay the USDC amount for the API call. The facilitator covers gas costs.
 
 **Q: What tokens are supported?**
-USDC (on Base, Arbitrum, Ethereum) and USDs (on Arbitrum). USDC uses EIP-3009, USDs uses EIP-2612 permit. SPA support is planned via Permit2.
+This service settles USDC (on Base, Arbitrum, Ethereum) with EIP-3009. USDs and other ERC-20s on Arbitrum settle through Permit2 on the [USDs x402 facilitator](https://github.com/Sperax/USDs-x402-facilitator).
 
 **Q: How fast are settlements?**
 Base and Arbitrum settle in ~2 seconds. Ethereum in ~12 seconds.
@@ -614,8 +610,9 @@ See [`.env.example`](.env.example) for all options.
 |---|---|---|
 | `PORT` | `3402` | Server port |
 | `HOST` | `0.0.0.0` | Server host |
-| `RATE_LIMIT_MAX` | `100` | Max requests per window per IP |
+| `RATE_LIMIT_MAX` | `100` | Max requests per window per client |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) |
+| `TRUSTED_PROXY_HOPS` | `1` | Proxies in front of the service that append to `X-Forwarded-For`. The client is the entry that many hops from the right; earlier entries are ignored as spoofable. Set `0` when the service is exposed directly. |
 | `CORS_ORIGINS` | `*` | Allowed CORS origins (comma-separated) |
 | `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
@@ -626,7 +623,7 @@ The facilitator wallet needs ETH on each enabled chain to pay gas for `transferW
 - **Non-custodial**: The facilitator wallet only needs ETH for gas. It never holds user USDC. Payments flow directly from sender to recipient via `transferWithAuthorization`.
 - **EIP-712 verification**: All payment signatures are cryptographically verified against the sender's address before settlement.
 - **Nonce protection**: Each authorization nonce is checked on-chain before submission to prevent replay attacks. In-flight nonces are tracked in memory to prevent concurrent double-settlement.
-- **Rate limiting**: Configurable per-IP rate limiting via middleware.
+- **Rate limiting**: Configurable per-client rate limiting, keyed on the X-Forwarded-For hop added by the trusted proxy (`TRUSTED_PROXY_HOPS`).
 - **Input validation**: All request bodies are validated with Zod schemas before processing.
 - **Secure headers**: HSTS, X-Frame-Options, CSP, and other security headers via Hono middleware.
 
@@ -639,8 +636,7 @@ src/
 ├── core/
 │   ├── facilitator.ts           # Orchestrates verify + settle flow
 │   ├── verifier.ts              # EIP-712 signature + requirements validation
-│   ├── settler.ts               # On-chain transferWithAuthorization
-│   └── nonce-store.ts           # LRU nonce dedup cache
+│   └── settler.ts               # On-chain transferWithAuthorization
 ├── config/
 │   ├── chains.ts                # Chain configs (Base, Arbitrum, Ethereum)
 │   ├── tokens.ts                # Token registry + EIP-712 domains
@@ -658,7 +654,8 @@ src/
 │   └── well-known.ts            # GET /.well-known/x402
 ├── middleware/
 │   ├── cors.ts                  # CORS configuration
-│   ├── rateLimit.ts             # Per-IP rate limiting
+│   ├── forwarded.ts             # Trusted X-Forwarded-For client resolution
+│   ├── rateLimit.ts             # Per-client rate limiting
 │   ├── validate.ts              # Request validation schemas
 │   └── x402-resource-server.ts  # x402 resource server middleware
 ├── types/

@@ -238,10 +238,10 @@ describe('PaymentVerifier', () => {
     });
   });
 
-  it('handles verifyTypedData throwing an error', async () => {
-    mockVerifyTypedData.mockRejectedValue(new Error('malformed signature'));
+  it('returns a generic reason when verifyTypedData throws', async () => {
+    mockVerifyTypedData.mockRejectedValue(new Error('internal parser state at 0xdeadbeef'));
     const result = await verifier.verify(makePayment(), makeRequirements());
-    expect(result).toEqual({ valid: false, reason: 'malformed signature' });
+    expect(result).toEqual({ valid: false, reason: 'Malformed signature' });
   });
 
   // ---- Case-insensitive address comparisons ------------------------------

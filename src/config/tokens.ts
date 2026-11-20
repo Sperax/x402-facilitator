@@ -1,7 +1,7 @@
 import type { Address, SupportedChainId } from '../types/index.js';
 
 /** Settlement scheme — how the facilitator moves tokens on-chain */
-export type SettlementScheme = 'eip3009' | 'eip2612';
+export type SettlementScheme = 'eip3009';
 
 export interface TokenInfo {
   symbol: string;
@@ -11,15 +11,16 @@ export interface TokenInfo {
   domainName: string;
   /** EIP-712 domain version for this token */
   domainVersion: string;
-  /** Settlement mechanism: eip3009 (transferWithAuthorization) or eip2612 (permit + transferFrom) */
+  /** Settlement mechanism: eip3009 (transferWithAuthorization) */
   scheme: SettlementScheme;
 }
 
 /**
  * Supported tokens per chain.
- * USDC uses EIP-3009 (transferWithAuthorization).
- * USDs uses EIP-2612 (permit + transferFrom) — domain name is "Sperax USD" (from on-chain name()).
- * SPA is standard ERC20 without EIP-2612 — not included as a settlement token.
+ * Every token here settles with EIP-3009 (transferWithAuthorization).
+ * USDs has no EIP-3009 and its permit() is not usable, so it settles through
+ * Permit2 on the USDs facilitator (github.com/Sperax/USDs-x402-facilitator,
+ * https://x402.sperax.io) rather than here.
  */
 const TOKEN_REGISTRY: Record<SupportedChainId, TokenInfo[]> = {
   1: [
@@ -60,14 +61,6 @@ const TOKEN_REGISTRY: Record<SupportedChainId, TokenInfo[]> = {
       domainName: 'USD Coin',
       domainVersion: '2',
       scheme: 'eip3009',
-    },
-    {
-      symbol: 'USDs',
-      address: '0xD74f5255D557944cf7Dd0E45FF521520002D5748',
-      decimals: 18,
-      domainName: 'Sperax USD',
-      domainVersion: '1',
-      scheme: 'eip2612',
     },
   ],
   421614: [

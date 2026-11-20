@@ -22,6 +22,8 @@ const envSchema = z.object({
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  /** Proxies in front of the service that append to X-Forwarded-For. 0 = none. */
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
 
   CORS_ORIGINS: z.string().default('*'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
@@ -32,8 +34,6 @@ const envSchema = z.object({
   ENABLE_ARBITRUM: booleanString.default('false'),
   ENABLE_ARBITRUM_SEPOLIA: booleanString.default('false'),
   ENABLE_ETHEREUM: booleanString.default('false'),
-
-  REDIS_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

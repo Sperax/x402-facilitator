@@ -13,9 +13,8 @@ import type {
   X402Payment,
   PaymentRequirements,
 } from '../types/index.js';
-import { ERC20_TRANSFER_WITH_AUTHORIZATION_ABI, ERC20_PERMIT_ABI } from '../abi/erc20-permit.js';
-import { getTokenConfig } from '../config/tokens.js';
-import { verifyPayment } from './verifier.js';
+import { ERC20_TRANSFER_WITH_AUTHORIZATION_ABI } from '../abi/erc20-permit.js';
+import { PaymentVerifier } from './verifier.js';
 import { logger } from '../utils/logger.js';
 import { metrics } from '../utils/metrics.js';
 
@@ -32,6 +31,16 @@ function getViemChain(chainId: SupportedChainId) {
     default: throw new Error(`Unknown chain: ${chainId}`);
   }
 }
+
+const ERC20_BALANCE_OF_ABI = [
+  {
+    inputs: [{ name: 'account', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
 
 /**
  * Decompose a 65-byte EIP-712 signature (0x-prefixed) into v, r, s.
@@ -56,6 +65,7 @@ export class Facilitator {
   private publicClients: Map<SupportedChainId, PublicClient> = new Map();
   private readonly address: Address;
   private inflightNonces: Set<string> = new Set();
+  private readonly verifier = new PaymentVerifier();
 
   constructor(config: FacilitatorConfig) {
     const account = privateKeyToAccount(config.privateKey);
@@ -80,32 +90,70 @@ export class Facilitator {
   }
 
   /**
-   * Verify a payment without settling.
+   * Verify a payment against its requirements without settling.
+   *
+   * Runs the off-chain checks (recipient, asset, amount, timing, signature),
+   * then confirms on-chain that the authorization nonce is unused and the
+   * payer holds enough of the token. RPC failures reject the payment.
    */
   async verify(
     payment: X402Payment,
-    _requirements?: PaymentRequirements,
+    requirements: PaymentRequirements,
   ): Promise<VerifyResponse> {
     const start = Date.now();
 
     try {
-      const result = await verifyPayment(payment);
+      const result = await this.verifier.verify(payment, requirements);
+      const onChainReason = result.valid ? await this.checkOnChain(payment) : undefined;
+      const valid = result.valid && !onChainReason;
 
-      metrics.verifyRequests.inc({ valid: String(result.valid) });
+      metrics.verifyRequests.inc({ valid: String(valid) });
       metrics.verifyLatency.observe(Date.now() - start);
 
-      if (!result.valid) {
-        logger.info({ reason: result.reason }, 'Payment verification failed');
-        return { valid: false, isValid: false, invalidReason: result.reason ?? 'Unknown' };
+      if (!valid) {
+        const reason = result.reason ?? onChainReason ?? 'Unknown';
+        logger.info({ reason }, 'Payment verification failed');
+        return { valid: false, isValid: false, invalidReason: reason };
       }
 
-      return { valid: true, isValid: true, payer: result.signer ?? payment.authorization.from };
+      return { valid: true, isValid: true, payer: payment.authorization.from };
     } catch (error: unknown) {
       metrics.verifyErrors.inc();
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error({ error: message }, 'Verification threw');
-      return { valid: false, isValid: false, invalidReason: `Verification error: ${message}` };
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Verification threw',
+      );
+      return { valid: false, isValid: false, invalidReason: 'Verification unavailable' };
     }
+  }
+
+  /**
+   * On-chain checks: the EIP-3009 nonce must be unused and the payer's
+   * balance must cover the authorized value. Returns a reason on failure.
+   */
+  private async checkOnChain(payment: X402Payment): Promise<string | undefined> {
+    const publicClient = this.publicClients.get(payment.chainId);
+    if (!publicClient) return `Unsupported chain: ${payment.chainId}`;
+
+    const { from, nonce, value } = payment.authorization;
+    const [nonceUsed, balance] = await Promise.all([
+      publicClient.readContract({
+        address: payment.token,
+        abi: ERC20_TRANSFER_WITH_AUTHORIZATION_ABI,
+        functionName: 'authorizationState',
+        args: [from, nonce],
+      }),
+      publicClient.readContract({
+        address: payment.token,
+        abi: ERC20_BALANCE_OF_ABI,
+        functionName: 'balanceOf',
+        args: [from],
+      }),
+    ]);
+
+    if (nonceUsed) return 'Authorization nonce already used';
+    if (balance < value) return 'Insufficient token balance';
+    return undefined;
   }
 
   /**
@@ -113,7 +161,7 @@ export class Facilitator {
    */
   async settle(
     payment: X402Payment,
-    requirements?: PaymentRequirements,
+    requirements: PaymentRequirements,
   ): Promise<SettleResponse> {
     const start = Date.now();
     const nonceKey = `${payment.chainId}:${payment.authorization.from}:${payment.authorization.nonce}`;
@@ -144,67 +192,22 @@ export class Facilitator {
 
       const { v, r, s } = decomposeSignature(payment.signature);
 
-      // Determine settlement scheme from token config or payment
-      const tokenConfig = getTokenConfig(payment.chainId, payment.token);
-      const scheme = payment.scheme ?? tokenConfig?.scheme ?? 'eip3009';
-
-      let txHash: Hex;
-
-      if (scheme === 'eip2612' && payment.permit) {
-        // EIP-2612: permit() + transferFrom() in two transactions
-        const permitHash = await (walletClient as any).writeContract({
-          address: payment.token,
-          abi: ERC20_PERMIT_ABI,
-          functionName: 'permit',
-          args: [
-            payment.permit.owner,
-            payment.permit.spender,
-            payment.permit.value,
-            payment.permit.deadline,
-            v,
-            r,
-            s,
-          ],
-        }) as Hex;
-
-        // Wait for permit to confirm before transferFrom
-        await publicClient.waitForTransactionReceipt({
-          hash: permitHash,
-          confirmations: 1,
-          timeout: 60_000,
-        });
-
-        logger.info({ permitHash, chainId: payment.chainId }, 'Permit tx confirmed');
-
-        txHash = await (walletClient as any).writeContract({
-          address: payment.token,
-          abi: ERC20_PERMIT_ABI,
-          functionName: 'transferFrom',
-          args: [
-            payment.permit.owner,
-            payment.permit.to,
-            payment.permit.value,
-          ],
-        }) as Hex;
-      } else {
-        // EIP-3009: single transferWithAuthorization call
-        txHash = await (walletClient as any).writeContract({
-          address: payment.token,
-          abi: ERC20_TRANSFER_WITH_AUTHORIZATION_ABI,
-          functionName: 'transferWithAuthorization',
-          args: [
-            payment.authorization.from,
-            payment.authorization.to,
-            payment.authorization.value,
-            payment.authorization.validAfter,
-            payment.authorization.validBefore,
-            payment.authorization.nonce,
-            v,
-            r,
-            s,
-          ],
-        }) as Hex;
-      }
+      const txHash = await (walletClient as any).writeContract({
+        address: payment.token,
+        abi: ERC20_TRANSFER_WITH_AUTHORIZATION_ABI,
+        functionName: 'transferWithAuthorization',
+        args: [
+          payment.authorization.from,
+          payment.authorization.to,
+          payment.authorization.value,
+          payment.authorization.validAfter,
+          payment.authorization.validBefore,
+          payment.authorization.nonce,
+          v,
+          r,
+          s,
+        ],
+      }) as Hex;
 
       logger.info({ txHash, chainId: payment.chainId }, 'Settlement tx submitted');
 
@@ -229,10 +232,12 @@ export class Facilitator {
       metrics.settleFailed.inc({ chainId: String(payment.chainId) });
       return { success: false, errorReason: 'Transaction reverted on-chain' };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown settlement error';
-      logger.error({ error: message }, 'Settlement failed');
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Settlement failed',
+      );
       metrics.settleFailed.inc({ chainId: String(payment.chainId) });
-      return { success: false, errorReason: message };
+      return { success: false, errorReason: 'Settlement failed' };
     } finally {
       this.inflightNonces.delete(nonceKey);
     }
